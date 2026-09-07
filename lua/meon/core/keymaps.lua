@@ -31,8 +31,8 @@ keymap.set("n", "<leader>-", "<C-x>", { desc = "Decrement number" }) -- decremen
 
 -- AI assistant toggle (<leader><Esc> opens active, <leader>as switches)
 local function toggle_ai()
-  if vim.g.ai_assistant == "opencode" then
-    require("opencode").toggle()
+  if vim.g.ai_assistant == "codex" then
+    require("codex").toggle()
   else
     vim.cmd("ClaudeCode")
   end
@@ -41,8 +41,20 @@ keymap.set({ "n", "v" }, "<leader><Esc>", toggle_ai, { desc = "Toggle AI assista
 keymap.set({ "n", "v" }, "<leader><space>", toggle_ai, { desc = "Toggle AI assistant" })
 
 keymap.set("x", "<leader>i", function()
-  if vim.g.ai_assistant == "opencode" then
-    return require("opencode").operator("@this ")
+  if vim.g.ai_assistant == "codex" then
+    -- yank selection, open codex, paste into its terminal
+    local lines = vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), { type = vim.fn.mode() })
+    local file = vim.fn.expand("%:.")
+    local text = ("@%s\n```\n%s\n```\n"):format(file, table.concat(lines, "\n"))
+    vim.schedule(function()
+      require("codex").open()
+      local job = vim.b.terminal_job_id
+      if job then
+        vim.fn.chansend(job, text)
+        vim.cmd("startinsert")
+      end
+    end)
+    return "<Esc>"
   else
     vim.cmd("ClaudeCodeSend")
     vim.schedule(function()
@@ -53,12 +65,12 @@ keymap.set("x", "<leader>i", function()
 end, { expr = true, desc = "Send selection to AI assistant" })
 
 keymap.set("n", "<leader>as", function()
-  vim.g.ai_assistant = vim.g.ai_assistant == "claude" and "opencode" or "claude"
+  vim.g.ai_assistant = vim.g.ai_assistant == "claude" and "codex" or "claude"
   local s = load_settings()
   s.ai_assistant = vim.g.ai_assistant
   save_settings(s)
   vim.notify("AI assistant: " .. vim.g.ai_assistant, vim.log.levels.INFO)
-end, { desc = "Switch AI assistant (claude/opencode)" })
+end, { desc = "Switch AI assistant (claude/codex)" })
 
 -- Reload config
 keymap.set("n", "<leader>rr", "<cmd>source ~/.config/nvim/init.lua<CR>", { desc = "Reload Neovim config" })
